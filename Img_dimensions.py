@@ -42,33 +42,35 @@ def contours_Area(Contours):
     
     return Total_Area
 
-def img_Corner_Select(all_Contours):
-    Select_Contours = []
-    for a in range(len(all_Contours)):
-        if len(all_Contours[a]) >= 6:
-            Select_Contours.append(all_Contours[a])    
+def img_Corner_Select(img):
+    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    gray = np.float32(gray)
+    dst = cv.cornerHarris(gray, 2, 3, 0.04)
+    dst = cv.dilate(dst, None)
 
-    x1, _, y1, _ = x_y_MaxAndMin(Select_Contours[0])
-    x2, _, _, y2 = x_y_MaxAndMin(Select_Contours[1])
-    _, x3, y3, _ = x_y_MaxAndMin(Select_Contours[2])
-    _, x4, _, y4 = x_y_MaxAndMin(Select_Contours[3])
-    
-    # Select_Corners = [(x1,y1),(x2,y2),(x3,y3),(x4,y4)]
-    Select_Corners = np.float32([[x1, y1], [x2, y2], [x3, y3], [x4, y4]])
-    
-    return  Select_Corners
+    threshold = 0.01 * dst.max()
+    corner_coordinates = np.where(dst > threshold)
 
-def x_y_MaxAndMin(Contours):
+    corner_points = np.column_stack((corner_coordinates[1], corner_coordinates[0]))
 
-    y_values = [ values[0][1] for values in Contours]
-
-    y_min = min(y_values)
-    y_max = max(y_values)
-
-    x_min = min([ values[0][0] for values in Contours if values[0][1] == y_min])
-    x_max = max([ values[0][0] for values in Contours if values[0][1] == y_max])
-
-    return x_min, x_max, y_min, y_max
+    find_Corners = []
+    tolerance = 60  # ??? 
+    index = 0
+    # corner filter 
+    for x, y in corner_points:
+        if len(find_Corners) == 0:
+            find_Corners.append((x, y))
+        else:
+            if index < len(find_Corners) and tolerance < abs(find_Corners[index][0] - x):
+                index += 1
+                find_Corners.append((x, y))
+            # if index < len(find_Corners) and tolerance < abs(find_Corners[index][1] - y):
+            #     index += 1
+            #     find_Corners.append((x, y))
+        
+    for x,y in find_Corners:
+        cv.circle(img, (x, y), 5, (0, 0, 255), -1)
+    return find_Corners
 
 
 def perspective_correction(img, corners, reference_size):
@@ -101,12 +103,17 @@ if img_path != "":
     img, img_Corners, img_Contours = img_Dim_Config(img_path)
     cv.drawContours(img, img_Contours, -1, (0, 255, 0), 1)
 
-    Find_Corners = img_Corner_Select(img_Contours)
-    # img = cv.rectangle(img, img_Corners[0], img_Corners[3], (0,0,255),2)
-    Corrected_Img = perspective_correction(img, Find_Corners, reference_size)
+    Find_Corners = img_Corner_Select(img)
+    # for index, corner in enumerate(Find_Corners):
+    #     cv.circle(img, corner, 5, (0, 255, 0), -1)
+    #     cv.putText(img,str(index), corner, cv.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2, cv.LINE_AA )
 
-    print(Find_Corners)
-    plt.imshow(Corrected_Img)
+    # img = cv.rectangle(img, Find_Corners[1], Find_Corners[0], (0,0,255),2)
+    # Corrected_Img = perspective_correction(img, Find_Corners, reference_size)
+
+
+    print(len(Find_Corners))
+    plt.imshow(img)
     plt.title("img")
     plt.show()
 
